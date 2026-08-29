@@ -185,7 +185,7 @@ function render() {
     const link = location.origin + '/?code=' + S.code;
     const canShare = !!(navigator.share);
     h += `<div class="card">
-      <h3>شارك رابط الغرفة 🔗</h3>
+      <h3>📨 أرسل الدعوة لباقي اللاعبين</h3>
       <div class="share"><input id="lnk" readonly value="${esc(link)}">
       <button class="ghost sm" data-copy="1">نسخ</button></div>
       <div class="row" style="margin-top:10px;flex-wrap:nowrap">

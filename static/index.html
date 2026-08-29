@@ -13,47 +13,76 @@
     <div class="pill">🌙 لعبة القاتل الليلي</div>
   </div>
 
-  <div class="card">
-    <h1>مافيا</h1>
-    <p class="muted">
-      قاتلان ضد الجميع: قاتلان، طبيب، محقق، والبقية مواطنون. القرعة عشوائية، الليل يمرّ بالأدوار واحداً واحداً،
-      وفي النهار تصوّتون على المشتبه به. يفوز المواطنون بإخراج القاتلين، ويفوز القتلة إذا تساوى عددهم مع الباقين.
-      <br>أنشئ غرفة وأرسل الرابط لأصدقائك — كل واحد يلعب من جواله.
-    </p>
-  </div>
-
-  <div class="card">
-    <h3>إنشاء غرفة جديدة</h3>
-    <label>اسمك</label>
-    <input id="cname" maxlength="20" placeholder="مثال: خالد">
-    <div style="height:10px"></div>
-    <label>قاعدة الطبيب في الحماية</label>
-    <select id="drule">
-      <option value="consecutive">لا يحمي نفس الشخص ليلتين متتاليتين</option>
-      <option value="once">لا يحمي نفس الشخص أكثر من مرة طوال اللعبة</option>
-    </select>
-    <div style="height:10px"></div>
-    <label>مدة النقاش والتصويت</label>
-    <select id="vsec">
-      <option value="180" selected>٣ دقائق</option>
-      <option value="120">دقيقتان</option>
-      <option value="300">٥ دقائق</option>
-      <option value="60">دقيقة واحدة</option>
-    </select>
-    <div style="height:14px"></div>
-    <button id="create" class="grow" style="width:100%">إنشاء الغرفة 🎲</button>
-  </div>
-
-  <div class="card">
-    <h3>الانضمام إلى غرفة</h3>
-    <div class="row">
-      <div class="grow"><label>رمز الغرفة</label>
-        <input id="jcode" maxlength="4" placeholder="ABCD" style="letter-spacing:6px;text-transform:uppercase"></div>
-      <div class="grow"><label>اسمك</label>
-        <input id="jname" maxlength="20" placeholder="اسمك"></div>
+  <!-- ١ — تسجيل الدخول -->
+  <div id="stepLogin">
+    <div id="invite" class="card hidden" style="border-color:#33285f;background:linear-gradient(90deg,#1d1740,#141830)">
+      <h3 style="margin:0">📨 أنت مدعو إلى غرفة <b id="invCode" style="letter-spacing:4px"></b></h3>
+      <p class="muted" style="margin:6px 0 0">سجّل دخولك بالاسم الذي سيراه بقية اللاعبين.</p>
     </div>
-    <div style="height:12px"></div>
-    <button id="join" class="ghost" style="width:100%">انضمام</button>
+
+    <div class="card">
+      <h1>تسجيل الدخول</h1>
+      <p class="muted">اكتب اسمك للدخول. لا حاجة لكلمة مرور — الاسم هو ما يراه بقية اللاعبين.</p>
+      <div style="height:14px"></div>
+      <label>اسمك</label>
+      <input id="name" maxlength="20" placeholder="مثال: خالد" autocomplete="nickname">
+      <div style="height:14px"></div>
+      <button id="login" style="width:100%">دخول ←</button>
+    </div>
+
+    <div class="card">
+      <h3>ما هي اللعبة؟</h3>
+      <p class="muted">
+        قاتلان ضد الجميع: قاتلان 🔪، طبيب 🩺، محقق 🕵️، والباقي مواطنون 🧑.
+        القرعة عشوائية، والليل يمرّ بالأدوار واحداً واحداً، وفي النهار تصوّتون على المشتبه به.
+        يفوز المواطنون بإخراج القاتلَين، ويفوز القتلة إذا تساوى عددهم مع الباقين.
+      </p>
+    </div>
+  </div>
+
+  <!-- ٢ — بعد الدخول -->
+  <div id="stepMenu" class="hidden">
+    <div class="card row">
+      <div class="grow"><span class="muted">مسجّل الدخول باسم</span>
+        <div style="font-size:20px;font-weight:800" id="who">—</div></div>
+      <button id="logout" class="ghost sm">تغيير الاسم</button>
+    </div>
+
+    <div id="joinInvited" class="card hidden">
+      <h3>📨 دعوة إلى غرفة <b id="invCode2" style="letter-spacing:4px"></b></h3>
+      <p class="muted">اضغط للانضمام إلى أصدقائك مباشرة.</p>
+      <div style="height:12px"></div>
+      <button id="joinNow" class="ok" style="width:100%">انضم إلى الغرفة ←</button>
+    </div>
+
+    <div class="card">
+      <h3>إنشاء غرفة جديدة</h3>
+      <p class="muted">أنشئ الغرفة، ثم أرسل الرابط لباقي اللاعبين من داخلها.</p>
+      <div style="height:12px"></div>
+      <label>قاعدة الطبيب في الحماية</label>
+      <select id="drule">
+        <option value="consecutive">لا يحمي نفس الشخص ليلتين متتاليتين</option>
+        <option value="once">لا يحمي نفس الشخص أكثر من مرة طوال اللعبة</option>
+      </select>
+      <div style="height:10px"></div>
+      <label>مدة النقاش والتصويت</label>
+      <select id="vsec">
+        <option value="180" selected>٣ دقائق</option>
+        <option value="120">دقيقتان</option>
+        <option value="300">٥ دقائق</option>
+        <option value="60">دقيقة واحدة</option>
+      </select>
+      <div style="height:14px"></div>
+      <button id="create" style="width:100%">إنشاء الغرفة ثم دعوة اللاعبين 🎲</button>
+    </div>
+
+    <div class="card">
+      <h3>أو انضم برمز غرفة</h3>
+      <div class="row">
+        <input id="jcode" class="grow" maxlength="4" placeholder="ABCD" style="letter-spacing:6px;text-transform:uppercase">
+        <button id="join" class="ghost">انضمام</button>
+      </div>
+    </div>
   </div>
 
   <div id="err" class="err hidden"></div>
@@ -62,39 +91,77 @@
 
 <script>
 const $ = s => document.querySelector(s);
+const ME = 'mafia:me';
 const showErr = m => { $('#err').textContent = m; $('#err').classList.remove('hidden'); };
+const hideErr = () => $('#err').classList.add('hidden');
+const invited = (new URLSearchParams(location.search).get('code') || '').toUpperCase();
 
-async function post(url, body){
-  const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+async function post(url, body) {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const j = await r.json();
-  if(!r.ok) throw new Error(j.error||'خطأ');
+  if (!r.ok) throw new Error(j.error || 'خطأ');
   return j;
 }
-function enter(j){
-  localStorage.setItem('2va:'+j.code, JSON.stringify({pid:j.pid, token:j.token}));
+function enter(j) {
+  localStorage.setItem('mafia:' + j.code, JSON.stringify({ pid: j.pid, token: j.token }));
   location.href = '/r/' + j.code;
 }
+const myName = () => (localStorage.getItem(ME) || '').trim();
+
+function show(step) {
+  $('#stepLogin').classList.toggle('hidden', step !== 'login');
+  $('#stepMenu').classList.toggle('hidden', step !== 'menu');
+  if (step === 'menu') {
+    $('#who').textContent = myName();
+    $('#joinInvited').classList.toggle('hidden', !invited);
+    if (invited) $('#invCode2').textContent = invited;
+  } else if (invited) {
+    $('#invite').classList.remove('hidden');
+    $('#invCode').textContent = invited;
+  }
+}
+
+$('#login').onclick = () => {
+  const n = $('#name').value.trim();
+  if (!n) return showErr('اكتب اسمك أولاً');
+  hideErr();
+  localStorage.setItem(ME, n);
+  show('menu');
+};
+$('#logout').onclick = () => { localStorage.removeItem(ME); $('#name').value = ''; show('login'); };
+
 $('#create').onclick = async () => {
-  try{
-    const j = await post('/api/create',{
-      name: $('#cname').value,
-      settings:{ doctorRule: $('#drule').value, voteSeconds: +$('#vsec').value }
-    });
-    enter(j);
-  }catch(e){ showErr(e.message); }
+  try {
+    hideErr();
+    enter(await post('/api/create', {
+      name: myName(),
+      settings: { doctorRule: $('#drule').value, voteSeconds: +$('#vsec').value }
+    }));
+  } catch (e) { showErr(e.message); }
 };
-$('#join').onclick = async () => {
-  try{
-    const j = await post('/api/join',{ code: $('#jcode').value, name: $('#jname').value });
-    enter(j);
-  }catch(e){ showErr(e.message); }
+const seatIn = code => {
+  try { return !!JSON.parse(localStorage.getItem('mafia:' + code) || 'null'); }
+  catch (e) { return false; }
 };
-const pre = new URLSearchParams(location.search).get('code');
-if(pre) $('#jcode').value = pre.toUpperCase();
+const joinCode = async code => {
+  if (seatIn(code)) { location.href = '/r/' + code; return; }   // لاعب عائد إلى غرفته
+  try { hideErr(); enter(await post('/api/join', { code, name: myName() })); }
+  catch (e) { showErr(e.message); }
+};
+$('#join').onclick = () => {
+  const c = $('#jcode').value.trim();
+  if (!c) return showErr('اكتب رمز الغرفة');
+  joinCode(c);
+};
+$('#joinNow').onclick = () => joinCode(invited);
+
 $('#jcode').addEventListener('input', e => e.target.value = e.target.value.toUpperCase());
-document.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => {
-  if(e.key === 'Enter') (i.id.startsWith('c') ? $('#create') : $('#join')).click();
-}));
+$('#name').addEventListener('keydown', e => { if (e.key === 'Enter') $('#login').click(); });
+$('#jcode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#join').click(); });
+
+if (invited && seatIn(invited)) location.href = '/r/' + invited;   // عاد من رابط دعوته
+else if (myName()) { $('#name').value = myName(); show('menu'); }
+else { show('login'); }
 </script>
 </body>
 </html>
