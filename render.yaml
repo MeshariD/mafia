@@ -1,0 +1,19 @@
+# نشر لعبة مافيا على Render — Blueprint
+# ادفع هذا المجلد إلى مستودع GitHub، ثم Render → New → Blueprint → اختر المستودع.
+services:
+  - type: web
+    name: mafia
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATA_DIR
+        value: /data
+
+    # الخطة المجانية: الغرف تُحفظ أثناء التشغيل فقط، وتضيع عند إعادة النشر
+    # أو بعد ١٥ دقيقة من الخمول التام (الخدمة تنام).
+    # لحفظ دائم حقيقي: غيّر plan إلى starter (‏~٧$ شهرياً) وأزل التعليق عن السطور التالية.
+    # disk:
+    #   name: mafia-data
+    #   mountPath: /data
+    #   sizeGB: 1

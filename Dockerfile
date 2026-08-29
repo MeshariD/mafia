@@ -1,0 +1,7 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY server.py .
+COPY static ./static
+ENV PORT=8000 DATA_DIR=/data
+EXPOSE 8000
+CMD ["python", "-u", "server.py"]

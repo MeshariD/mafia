@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>مافيا — لعبة القاتل الليلي</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">ما<span>فيا</span> 🎭</div>
+    <div class="pill">🌙 لعبة القاتل الليلي</div>
+  </div>
+
+  <div class="card">
+    <h1>مافيا</h1>
+    <p class="muted">
+      قاتلان ضد الجميع: قاتلان، طبيب، محقق، والبقية مواطنون. القرعة عشوائية، الليل يمرّ بالأدوار واحداً واحداً،
+      وفي النهار تصوّتون على المشتبه به. يفوز المواطنون بإخراج القاتلين، ويفوز القتلة إذا تساوى عددهم مع الباقين.
+      <br>أنشئ غرفة وأرسل الرابط لأصدقائك — كل واحد يلعب من جواله.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>إنشاء غرفة جديدة</h3>
+    <label>اسمك</label>
+    <input id="cname" maxlength="20" placeholder="مثال: خالد">
+    <div style="height:10px"></div>
+    <label>قاعدة الطبيب في الحماية</label>
+    <select id="drule">
+      <option value="consecutive">لا يحمي نفس الشخص ليلتين متتاليتين</option>
+      <option value="once">لا يحمي نفس الشخص أكثر من مرة طوال اللعبة</option>
+    </select>
+    <div style="height:10px"></div>
+    <label>مدة النقاش والتصويت</label>
+    <select id="vsec">
+      <option value="180" selected>٣ دقائق</option>
+      <option value="120">دقيقتان</option>
+      <option value="300">٥ دقائق</option>
+      <option value="60">دقيقة واحدة</option>
+    </select>
+    <div style="height:14px"></div>
+    <button id="create" class="grow" style="width:100%">إنشاء الغرفة 🎲</button>
+  </div>
+
+  <div class="card">
+    <h3>الانضمام إلى غرفة</h3>
+    <div class="row">
+      <div class="grow"><label>رمز الغرفة</label>
+        <input id="jcode" maxlength="4" placeholder="ABCD" style="letter-spacing:6px;text-transform:uppercase"></div>
+      <div class="grow"><label>اسمك</label>
+        <input id="jname" maxlength="20" placeholder="اسمك"></div>
+    </div>
+    <div style="height:12px"></div>
+    <button id="join" class="ghost" style="width:100%">انضمام</button>
+  </div>
+
+  <div id="err" class="err hidden"></div>
+  <div class="foot">أقل عدد للاعبين: ٦ — الأفضل من ٨ إلى ١٢</div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const showErr = m => { $('#err').textContent = m; $('#err').classList.remove('hidden'); };
+
+async function post(url, body){
+  const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j = await r.json();
+  if(!r.ok) throw new Error(j.error||'خطأ');
+  return j;
+}
+function enter(j){
+  localStorage.setItem('2va:'+j.code, JSON.stringify({pid:j.pid, token:j.token}));
+  location.href = '/r/' + j.code;
+}
+$('#create').onclick = async () => {
+  try{
+    const j = await post('/api/create',{
+      name: $('#cname').value,
+      settings:{ doctorRule: $('#drule').value, voteSeconds: +$('#vsec').value }
+    });
+    enter(j);
+  }catch(e){ showErr(e.message); }
+};
+$('#join').onclick = async () => {
+  try{
+    const j = await post('/api/join',{ code: $('#jcode').value, name: $('#jname').value });
+    enter(j);
+  }catch(e){ showErr(e.message); }
+};
+const pre = new URLSearchParams(location.search).get('code');
+if(pre) $('#jcode').value = pre.toUpperCase();
+$('#jcode').addEventListener('input', e => e.target.value = e.target.value.toUpperCase());
+document.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => {
+  if(e.key === 'Enter') (i.id.startsWith('c') ? $('#create') : $('#join')).click();
+}));
+</script>
+</body>
+</html>
