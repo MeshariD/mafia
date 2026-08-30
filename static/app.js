@@ -17,7 +17,10 @@ let revealed = false;  // هل كشف اللاعب بطاقته
 let lastSpoken = '';
 let draft = '';
 let phaseTotal = null;
-let soundOn = false;
+let soundOn = localStorage.getItem('mafia:sound') !== 'off';   // الأصل: الصوت يعمل
+let audioBlocked = false;      // منعه المتصفح قبل أول تفاعل
+let pending = null;            // الجملة التي تنتظر فكّ القفل
+let unlocked = false;
 let VOICE = {};
 const voiceReady = fetch('/api/voice').then(r => r.json())
   .then(j => { VOICE = j.clips || {}; }).catch(() => { VOICE = {}; });
@@ -78,11 +81,23 @@ function speak(text) {
     speechSynthesis.speak(u);
   } catch (e) { /* تجاهل */ }
 }
+const SILENT = 'data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YRAAAAAAAAAAAAAAAAAAAAAAAAAA';
+function unlockAudio() {
+  if (unlocked) return;
+  unlocked = true;
+  const a = new Audio(SILENT);
+  a.volume = 0;
+  a.play().then(() => a.pause()).catch(() => { unlocked = false; });
+}
+['pointerdown', 'keydown', 'touchend'].forEach(ev =>
+  document.addEventListener(ev, unlockAudio, { capture: true }));
+
 function playClip(file) {
   return new Promise(res => {
     const a = new Audio('/static/voice/' + encodeURIComponent(file));
-    a.onended = res; a.onerror = res;
-    a.play().catch(res);
+    a.onended = () => res(true);
+    a.onerror = () => res(true);              // ملف تالف: تجاوزه بلا توقف
+    a.play().catch(e => res(!(e && e.name === 'NotAllowedError')));
   });
 }
 async function narrate(ids, text) {
@@ -90,18 +105,32 @@ async function narrate(ids, text) {
   await voiceReady;
   if (ids && ids.length && ids.every(i => VOICE[i])) {
     if (window.speechSynthesis) speechSynthesis.cancel();
-    for (const id of ids) await playClip(VOICE[id]);   // تسجيلك أنت
+    for (const id of ids) {
+      const ok = await playClip(VOICE[id]);
+      if (!ok) {                       // المتصفح منع التشغيل قبل أول تفاعل
+        pending = { ids, text };
+        if (!audioBlocked) { audioBlocked = true; render(); }
+        return;
+      }
+    }
+    if (audioBlocked) { audioBlocked = false; render(); }
     return;
   }
   speak(text);                                          // البديل: الصوت الآلي
 }
 
+function syncSoundBtn() { $('#sound').textContent = soundOn ? '🔊 الصوت' : '🔇 الصوت'; }
 $('#sound').onclick = () => {
   soundOn = !soundOn;
-  $('#sound').textContent = soundOn ? '🔊 الصوت' : '🔇 الصوت';
-  if (soundOn) speak('تم تشغيل صوت الراوي.');
-  else if (window.speechSynthesis) speechSynthesis.cancel();
+  localStorage.setItem('mafia:sound', soundOn ? 'on' : 'off');
+  syncSoundBtn();
+  if (soundOn) { unlockAudio(); if (pending) narrate(pending.ids, pending.text); }
+  else {
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    if (audioBlocked) { audioBlocked = false; render(); }
+  }
 };
+syncSoundBtn();
 
 /* ------------------------------------------------ الحالة */
 let skew = 0;
@@ -383,6 +412,13 @@ function render() {
       <b>أنت خارج اللعبة</b><p class="muted" style="margin:6px 0 0">تتابع كمشاهد — لا تفصح عن أي معلومة.</p></div>` + h;
   }
 
+  if (audioBlocked) {
+    h = `<div class="card" style="border-color:var(--warn);background:linear-gradient(90deg,#3a2a08,#141830)">
+      <div class="row"><div class="grow">
+        <b style="font-size:17px">🔇 المتصفح أوقف الصوت</b>
+        <p class="muted" style="margin:6px 0 0">اضغط الزر مرة واحدة لتسمع صوت الراوي طوال الجولة.</p>
+      </div><button data-unlock="1">🔊 فعّل الصوت</button></div></div>` + h;
+  }
   app.innerHTML = h;
   wire();
 }
@@ -404,6 +440,12 @@ function wire() {
     const map = { night_killers: 'kill', night_detective: 'investigate', night_doctor: 'protect', day_vote: 'vote' };
     const t = map[S.phase];
     if (t) await act({ type: t, target: sel });
+  };
+  const un = app.querySelector('[data-unlock]');
+  if (un) un.onclick = () => {
+    unlocked = false; unlockAudio();
+    audioBlocked = false; render();
+    if (pending) narrate(pending.ids, pending.text);
   };
   const rs = app.querySelector('[data-reset]');
   if (rs) rs.onclick = async () => {
