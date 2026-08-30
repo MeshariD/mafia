@@ -109,6 +109,8 @@ function apply(st) {
   if (!S || S.phase !== st.phase) {
     sel = null;
     phaseTotal = st.deadline ? Math.max(1, st.deadline - st.now) : null;
+  } else if (st.deadline && S.deadline && st.deadline !== S.deadline) {
+    phaseTotal = Math.max(1, st.deadline - st.now);   // مُددت المهلة داخل المرحلة
   }
   if (st.phase === 'lobby') revealed = false;
   S = st;
@@ -373,7 +375,8 @@ function render() {
 
   if (you.isHost && !['lobby', 'ended'].includes(S.phase)) {
     h += `<div class="row" style="margin-top:6px;justify-content:center">
-      <button class="ghost sm" data-act="next">⏭️ تخطّي هذه المرحلة (المضيف)</button></div>`;
+      <button class="ghost sm" data-act="next">⏭️ تخطّي هذه المرحلة</button>
+      <button class="ghost sm" data-reset="1">🔄 إعادة اللعبة من البداية</button></div>`;
   }
   if (!you.alive && S.phase !== 'lobby' && S.phase !== 'ended' && S.phase !== 'day_vote') {
     h = `<div class="card" style="text-align:center;border-color:#6b1e35">
@@ -401,6 +404,11 @@ function wire() {
     const map = { night_killers: 'kill', night_detective: 'investigate', night_doctor: 'protect', day_vote: 'vote' };
     const t = map[S.phase];
     if (t) await act({ type: t, target: sel });
+  };
+  const rs = app.querySelector('[data-reset]');
+  if (rs) rs.onclick = async () => {
+    if (!confirm('إعادة اللعبة من البداية؟ سيعود الجميع إلى غرفة الانتظار وتُوزَّع الأدوار من جديد.')) return;
+    await act({ type: 'restart' });
   };
   const rv = app.querySelector('[data-reveal]');
   if (rv) rv.onclick = () => { revealed = true; render(); };

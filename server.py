@@ -38,14 +38,15 @@ ROLE_AR = {
 }
 
 DEFAULT_SETTINGS = {
-    "nightKillSeconds": 90,
-    "nightRoleSeconds": 45,
+    "nightKillSeconds": 30,
+    "nightRoleSeconds": 30,
     "voteSeconds": 180,
     "revealSeconds": 60,
     "doctorRule": "consecutive",  # consecutive | once
 }
 
 MIN_PLAYERS = 6
+RESULT_SECONDS = 12          # مهلة قراءة نتيجة المحقق بعد استفساره
 ROOM_TTL = 6 * 3600
 
 
@@ -444,7 +445,7 @@ def do_action(room, player, data):
         return None
 
     if kind == "restart":
-        if pid != room["host"] or phase != "ended":
+        if pid != room["host"] or phase == "lobby":
             return "غير مسموح"
         restart_room(room)
         return None
@@ -503,6 +504,8 @@ def do_action(room, player, data):
         room["night"]["investigate"] = {"target": target, "result": result}
         room["investigations"].append({
             "day": room["day"], "name": tp["name"], "result": result})
+        # مهلة ثابتة لقراءة النتيجة، مهما تبقّى من وقت المرحلة
+        room["deadline"] = time.time() + RESULT_SECONDS
         bump(room)
         return None
 
