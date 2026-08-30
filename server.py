@@ -39,7 +39,8 @@ ROLE_AR = {
 
 DEFAULT_SETTINGS = {
     "nightKillSeconds": 30,
-    "nightRoleSeconds": 30,
+    "nightDetectiveSeconds": 30,
+    "nightDoctorSeconds": 30,
     "voteSeconds": 180,
     "revealSeconds": 60,
     "doctorRule": "consecutive",  # consecutive | once
@@ -47,6 +48,35 @@ DEFAULT_SETTINGS = {
 
 MIN_PLAYERS = 6
 RESULT_SECONDS = 12          # مهلة قراءة نتيجة المحقق بعد استفساره
+
+# حدود الأوقات القابلة للتعديل: المفتاح -> (الأدنى، الأعلى)
+TIME_LIMITS = {
+    "nightKillSeconds": (10, 300),
+    "nightDetectiveSeconds": (10, 300),
+    "nightDoctorSeconds": (10, 300),
+    "voteSeconds": (30, 900),
+    "revealSeconds": (15, 300),
+}
+
+
+def apply_times(settings, data):
+    """يطبّق الأوقات المرسلة ضمن حدودها، ويتجاهل غير الصالح."""
+    for key, (lo, hi) in TIME_LIMITS.items():
+        if key in data and data[key] is not None:
+            try:
+                settings[key] = max(lo, min(hi, int(data[key])))
+            except (TypeError, ValueError):
+                pass
+
+
+def normalize_settings(settings):
+    """يكمل المفاتيح الناقصة — للغرف المحفوظة قبل فصل وقتي المحقق والطبيب."""
+    old = settings.pop("nightRoleSeconds", None)
+    for key, default in DEFAULT_SETTINGS.items():
+        if key not in settings:
+            settings[key] = old if (old and key in
+                ("nightDetectiveSeconds", "nightDoctorSeconds")) else default
+    return settings
 ROOM_TTL = 6 * 3600
 
 
@@ -83,6 +113,7 @@ def load_state():
         if dl:
             # مهلة سماح للاعبين كي يعودوا بعد انقطاع الخادم
             room["deadline"] = now + max(20.0, min(dl - now, 600.0))
+        normalize_settings(room.setdefault("settings", {}))
         ROOMS[code] = room
         kept += 1
     if kept:
@@ -149,12 +180,7 @@ def create_room(settings=None):
             for k in ("doctorRule",):
                 if k in settings:
                     s[k] = settings[k]
-            for k in ("voteSeconds", "nightKillSeconds", "nightRoleSeconds"):
-                if k in settings:
-                    try:
-                        s[k] = max(15, min(600, int(settings[k])))
-                    except (TypeError, ValueError):
-                        pass
+            apply_times(s, settings)
         room = {
             "code": code,
             "created": time.time(),
@@ -257,7 +283,7 @@ def to_detective(room):
     if not alive_with_role(room, DETECTIVE):
         to_doctor(room)
         return
-    set_phase(room, "night_detective", room["settings"]["nightRoleSeconds"],
+    set_phase(room, "night_detective", room["settings"]["nightDetectiveSeconds"],
               "ليُغلق القتلة أعينهم. ليفتح المحقق عينيه، واستفسر عن شخص واحد.")
 
 
@@ -265,7 +291,7 @@ def to_doctor(room):
     if not alive_with_role(room, DOCTOR):
         to_announce(room)
         return
-    set_phase(room, "night_doctor", room["settings"]["nightRoleSeconds"],
+    set_phase(room, "night_doctor", room["settings"]["nightDoctorSeconds"],
               "ليُغلق المحقق عينيه. ليفتح الطبيب عينيه، واختر شخصاً لحمايته.")
 
 
@@ -435,12 +461,7 @@ def do_action(room, player, data):
         rule = data.get("doctorRule")
         if rule in ("consecutive", "once"):
             room["settings"]["doctorRule"] = rule
-        vs = data.get("voteSeconds")
-        if vs:
-            try:
-                room["settings"]["voteSeconds"] = max(30, min(600, int(vs)))
-            except (TypeError, ValueError):
-                pass
+        apply_times(room["settings"], data)
         bump(room)
         return None
 

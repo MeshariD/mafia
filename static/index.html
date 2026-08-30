@@ -65,13 +65,18 @@
         <option value="once">لا يحمي نفس الشخص أكثر من مرة طوال اللعبة</option>
       </select>
       <div style="height:10px"></div>
+      <div style="height:10px"></div>
+      <label>وقت القتلة لاختيار الضحية</label>
+      <select id="tkill"></select>
+      <div style="height:10px"></div>
+      <label>وقت المحقق للاستفسار</label>
+      <select id="tdet"></select>
+      <div style="height:10px"></div>
+      <label>وقت الطبيب للحماية</label>
+      <select id="tdoc"></select>
+      <div style="height:10px"></div>
       <label>مدة النقاش والتصويت</label>
-      <select id="vsec">
-        <option value="180" selected>٣ دقائق</option>
-        <option value="120">دقيقتان</option>
-        <option value="300">٥ دقائق</option>
-        <option value="60">دقيقة واحدة</option>
-      </select>
+      <select id="vsec"></select>
       <div style="height:14px"></div>
       <button id="create" style="width:100%">إنشاء الغرفة ثم دعوة اللاعبين 🎲</button>
     </div>
@@ -136,7 +141,13 @@ $('#create').onclick = async () => {
     hideErr();
     enter(await post('/api/create', {
       name: myName(),
-      settings: { doctorRule: $('#drule').value, voteSeconds: +$('#vsec').value }
+      settings: {
+        doctorRule: $('#drule').value,
+        nightKillSeconds: +$('#tkill').value,
+        nightDetectiveSeconds: +$('#tdet').value,
+        nightDoctorSeconds: +$('#tdoc').value,
+        voteSeconds: +$('#vsec').value
+      }
     }));
   } catch (e) { showErr(e.message); }
 };
@@ -155,6 +166,25 @@ $('#join').onclick = () => {
   joinCode(c);
 };
 $('#joinNow').onclick = () => joinCode(invited);
+
+// خيارات الأوقات
+const NIGHT_TIMES = [10, 15, 20, 30, 45, 60, 90, 120];
+const VOTE_TIMES = [60, 120, 180, 240, 300, 600];
+function fmtDur(s) {
+  if (s < 60) return s + ' ثانية';
+  if (s === 60) return 'دقيقة واحدة';
+  if (s === 90) return 'دقيقة ونصف';
+  if (s === 120) return 'دقيقتان';
+  return (s / 60) + ' دقائق';
+}
+function fillSel(id, opts, def) {
+  $(id).innerHTML = opts.map(o =>
+    `<option value="${o}"${o === def ? ' selected' : ''}>${fmtDur(o)}</option>`).join('');
+}
+fillSel('#tkill', NIGHT_TIMES, 30);
+fillSel('#tdet', NIGHT_TIMES, 30);
+fillSel('#tdoc', NIGHT_TIMES, 30);
+fillSel('#vsec', VOTE_TIMES, 180);
 
 $('#jcode').addEventListener('input', e => e.target.value = e.target.value.toUpperCase());
 $('#name').addEventListener('keydown', e => { if (e.key === 'Enter') $('#login').click(); });

@@ -34,6 +34,44 @@ const ROLE_DESC = {
 };
 const TAG = { killer: 'k', doctor: 'd', detective: 'i', citizen: 'c' };
 
+const NIGHT_TIMES = [10, 15, 20, 30, 45, 60, 90, 120];
+const VOTE_TIMES = [60, 120, 180, 240, 300, 600];
+function fmtDur(s) {
+  if (s < 60) return s + ' ثانية';
+  if (s === 60) return 'دقيقة واحدة';
+  if (s === 90) return 'دقيقة ونصف';
+  if (s === 120) return 'دقيقتان';
+  return (s / 60) + ' دقائق';
+}
+const TIME_FIELDS = [
+  ['nightKillSeconds', 'وقت القتلة لاختيار الضحية', NIGHT_TIMES],
+  ['nightDetectiveSeconds', 'وقت المحقق للاستفسار', NIGHT_TIMES],
+  ['nightDoctorSeconds', 'وقت الطبيب للحماية', NIGHT_TIMES],
+  ['voteSeconds', 'مدة النقاش والتصويت', VOTE_TIMES]
+];
+function selRow(label, key, opts, value) {
+  return `<label>${label}</label><select data-set="${key}">` +
+    opts.map(o => `<option value="${o}"${o === value ? ' selected' : ''}>${fmtDur(o)}</option>`).join('') +
+    `</select><div style="height:10px"></div>`;
+}
+function settingsPanel(isHost, st) {
+  const s = st.settings;
+  if (!isHost) {
+    return `<div class="card"><h3>⏱️ إعدادات الجولة</h3><p class="muted">` +
+      TIME_FIELDS.map(([k, l]) => `${l}: <b>${fmtDur(s[k])}</b>`).join(' · ') +
+      `<br>حماية الطبيب: ${s.doctorRule === 'once' ? 'مرة واحدة لكل شخص طوال اللعبة'
+        : 'لا يحمي نفس الشخص ليلتين متتاليتين'}</p></div>`;
+  }
+  return `<div class="card"><h3>⏱️ الأوقات والقواعد</h3>
+    <p class="muted" style="margin:0 0 12px">عدّلها قبل البدء — تُطبَّق فوراً على الجميع.</p>
+    ${TIME_FIELDS.map(([k, l, o]) => selRow(l, k, o, s[k])).join('')}
+    <label>قاعدة الطبيب في الحماية</label>
+    <select data-set="doctorRule">
+      <option value="consecutive"${s.doctorRule === 'consecutive' ? ' selected' : ''}>لا يحمي نفس الشخص ليلتين متتاليتين</option>
+      <option value="once"${s.doctorRule === 'once' ? ' selected' : ''}>لا يحمي نفس الشخص أكثر من مرة طوال اللعبة</option>
+    </select></div>`;
+}
+
 /* ------------------------------------------------ شبكة */
 async function act(body) {
   const r = await fetch('/api/action', {
@@ -249,10 +287,9 @@ function render() {
     </div>`;
     h += `<div class="card"><h3>اللاعبون (${S.players.length})</h3>${playerList({})}
       <p class="muted" style="margin-top:12px">
-        الأدوار: قاتلان 🔪 · طبيب 🩺 · محقق 🕵️ · والباقي مواطنون 🧑<br>
-        حماية الطبيب: ${S.settings.doctorRule === 'once' ? 'مرة واحدة لكل شخص طوال اللعبة' : 'لا يحمي نفس الشخص ليلتين متتاليتين'}
-        · مدة التصويت: ${Math.round(S.settings.voteSeconds / 60)} دقيقة
+        الأدوار: قاتلان 🔪 · طبيب 🩺 · محقق 🕵️ · والباقي مواطنون 🧑
       </p></div>`;
+    h += settingsPanel(you.isHost, S);
     if (you.isHost) {
       const ok = S.players.length >= S.minPlayers;
       h += `<button style="width:100%" data-act="start"${ok ? '' : ' disabled'}>
@@ -441,6 +478,11 @@ function wire() {
     const t = map[S.phase];
     if (t) await act({ type: t, target: sel });
   };
+  app.querySelectorAll('[data-set]').forEach(el => el.onchange = async () => {
+    const key = el.dataset.set;
+    const val = key === 'doctorRule' ? el.value : +el.value;
+    await act(Object.assign({ type: 'settings' }, { [key]: val }));
+  });
   const un = app.querySelector('[data-unlock]');
   if (un) un.onclick = () => {
     unlocked = false; unlockAudio();
