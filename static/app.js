@@ -18,6 +18,9 @@ let lastSpoken = '';
 let draft = '';
 let phaseTotal = null;
 let soundOn = false;
+let VOICE = {};
+const voiceReady = fetch('/api/voice').then(r => r.json())
+  .then(j => { VOICE = j.clips || {}; }).catch(() => { VOICE = {}; });
 
 const ROLE_EMO = { killer: '🔪', doctor: '🩺', detective: '🕵️', citizen: '🧑' };
 const ROLE_DESC = {
@@ -75,6 +78,24 @@ function speak(text) {
     speechSynthesis.speak(u);
   } catch (e) { /* تجاهل */ }
 }
+function playClip(file) {
+  return new Promise(res => {
+    const a = new Audio('/static/voice/' + encodeURIComponent(file));
+    a.onended = res; a.onerror = res;
+    a.play().catch(res);
+  });
+}
+async function narrate(ids, text) {
+  if (!soundOn) return;
+  await voiceReady;
+  if (ids && ids.length && ids.every(i => VOICE[i])) {
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    for (const id of ids) await playClip(VOICE[id]);   // تسجيلك أنت
+    return;
+  }
+  speak(text);                                          // البديل: الصوت الآلي
+}
+
 $('#sound').onclick = () => {
   soundOn = !soundOn;
   $('#sound').textContent = soundOn ? '🔊 الصوت' : '🔇 الصوت';
@@ -92,9 +113,9 @@ function apply(st) {
   if (st.phase === 'lobby') revealed = false;
   S = st;
   skew = Date.now() / 1000 - st.now;
-  if (st.narrationId !== lastSpoken && st.narration) {
+  if (st.narrationId !== lastSpoken && (st.narration || (st.voice || []).length)) {
     lastSpoken = st.narrationId;
-    speak(st.narration);
+    narrate(st.voice || [], st.narration);
   }
   render();
 }

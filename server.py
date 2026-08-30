@@ -589,6 +589,7 @@ def build_state(room, player):
         "deadline": room["deadline"],
         "narration": room["narration"],
         "narrationId": room["narrationId"],
+        "voice": voice_clips(room),
         "minPlayers": MIN_PLAYERS,
         "settings": room["settings"],
         "you": {
@@ -641,7 +642,35 @@ def build_state(room, player):
 # ---------------------------------------------------------------- http
 
 CT = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
-      ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".ico": "image/x-icon"}
+      ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".ico": "image/x-icon",
+      ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav",
+      ".ogg": "audio/ogg", ".aac": "audio/aac"}
+
+VOICE_EXT = (".mp3", ".m4a", ".wav", ".ogg", ".aac")
+
+
+def voice_clips(room):
+    """أسماء المقاطع الصوتية التي تُشغَّل في هذا الطور، بالترتيب."""
+    ph = room["phase"]
+    if ph == "reveal":
+        return ["reveal"]
+    if ph == "night_intro":
+        return ["night"]
+    if ph == "night_killers":
+        return ["killers"]
+    if ph == "night_detective":
+        return ["detective"]
+    if ph == "night_doctor":
+        return ["doctor"]
+    if ph == "day_announce":
+        return ["morning", "kill_success" if room["night"].get("victim") else "kill_failed"]
+    if ph == "day_vote":
+        return ["vote"]
+    if ph == "day_result":
+        return ["eliminated" if room.get("lastVoteOut") else "no_elimination"]
+    if ph == "ended":
+        return ["win_killers" if room["winner"] == "killers" else "win_citizens"]
+    return []
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -671,7 +700,12 @@ class Handler(BaseHTTPRequestHandler):
         self._json(code, {"error": msg})
 
     def _static(self, name):
-        path = os.path.join(STATIC, name)
+        safe = os.path.normpath(name).lstrip("/\\")
+        path = os.path.join(STATIC, safe)
+        root = os.path.abspath(STATIC)
+        if not os.path.abspath(path).startswith(root + os.sep):
+            self._send(404, "not found", "text/plain; charset=utf-8")
+            return
         if not os.path.isfile(path):
             self._send(404, "not found", "text/plain; charset=utf-8")
             return
@@ -709,7 +743,16 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/r/"):
             return self._static("game.html")
         if path.startswith("/static/"):
-            return self._static(os.path.basename(path))
+            return self._static(path[len("/static/"):])
+        if path == "/api/voice":
+            clips = {}
+            vdir = os.path.join(STATIC, "voice")
+            if os.path.isdir(vdir):
+                for fn in sorted(os.listdir(vdir)):
+                    base, ext = os.path.splitext(fn)
+                    if ext.lower() in VOICE_EXT:
+                        clips[base] = fn
+            return self._json(200, {"clips": clips})
         if path == "/health":
             return self._json(200, {"ok": True, "rooms": len(ROOMS)})
         if path == "/api/state":
