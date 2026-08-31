@@ -22,12 +22,15 @@ let audioBlocked = false;      // منعه المتصفح قبل أول تفاع
 let pending = null;            // الجملة التي تنتظر فكّ القفل
 let unlocked = false;
 let VOICE = {};
+const VOICE_FALLBACK = { killers_one: 'killers', detective_one: 'detective' };
+const clipFor = id => VOICE[id] || VOICE[VOICE_FALLBACK[id]];
 const voiceReady = fetch('/api/voice').then(r => r.json())
   .then(j => { VOICE = j.clips || {}; }).catch(() => { VOICE = {}; });
 
 const ROLE_EMO = { killer: '🔪', doctor: '🩺', detective: '🕵️', citizen: '🧑' };
 const ROLE_DESC = {
   killer: 'تقتلون شخصاً كل ليلة بالاتفاق بينكما. هدفكم: أن تتساووا عدداً مع الباقين.',
+  killer_solo: 'تقتل شخصاً كل ليلة بمفردك. هدفك: أن تتساوى عدداً مع الباقين.',
   doctor: 'كل ليلة تحمي شخصاً واحداً — بما فيهم نفسك — من محاولة القتل.',
   detective: 'كل ليلة تستفسر عن شخص واحد، فيخبرك النظام: قاتل أو ليس قاتلاً.',
   citizen: 'لا قدرة خاصة لديك. سلاحك هو النقاش والتصويت الصائب في النهار.'
@@ -58,6 +61,7 @@ function settingsPanel(isHost, st) {
   const s = st.settings;
   if (!isHost) {
     return `<div class="card"><h3>⏱️ إعدادات الجولة</h3><p class="muted">` +
+      `عدد القتلة: <b>${+s.killers === 1 ? 'قاتل واحد' : 'قاتلان'}</b> · ` +
       TIME_FIELDS.map(([k, l]) => `${l}: <b>${fmtDur(s[k])}</b>`).join(' · ') +
       `<br>حماية الطبيب: ${s.doctorRule === 'once' ? 'مرة واحدة لكل شخص طوال اللعبة'
         : 'لا يحمي نفس الشخص ليلتين متتاليتين'}</p></div>`;
@@ -65,6 +69,11 @@ function settingsPanel(isHost, st) {
   return `<div class="card"><h3>⏱️ الأوقات والقواعد</h3>
     <p class="muted" style="margin:0 0 12px">عدّلها قبل البدء — تُطبَّق فوراً على الجميع.</p>
     ${TIME_FIELDS.map(([k, l, o]) => selRow(l, k, o, s[k])).join('')}
+    <label>عدد القتلة</label>
+    <select data-set="killers">
+      <option value="1"${+s.killers === 1 ? ' selected' : ''}>قاتل واحد 🔪</option>
+      <option value="2"${+s.killers === 2 ? ' selected' : ''}>قاتلان 🔪🔪</option>
+    </select><div style="height:10px"></div>
     <label>قاعدة الطبيب في الحماية</label>
     <select data-set="doctorRule">
       <option value="consecutive"${s.doctorRule === 'consecutive' ? ' selected' : ''}>لا يحمي نفس الشخص ليلتين متتاليتين</option>
@@ -141,10 +150,10 @@ function playClip(file) {
 async function narrate(ids, text) {
   if (!soundOn) return;
   await voiceReady;
-  if (ids && ids.length && ids.every(i => VOICE[i])) {
+  if (ids && ids.length && ids.every(i => clipFor(i))) {
     if (window.speechSynthesis) speechSynthesis.cancel();
     for (const id of ids) {
-      const ok = await playClip(VOICE[id]);
+      const ok = await playClip(clipFor(id));
       if (!ok) {                       // المتصفح منع التشغيل قبل أول تفاعل
         pending = { ids, text };
         if (!audioBlocked) { audioBlocked = true; render(); }
@@ -287,8 +296,14 @@ function render() {
     </div>`;
     h += `<div class="card"><h3>اللاعبون (${S.players.length})</h3>${playerList({})}
       <p class="muted" style="margin-top:12px">
-        الأدوار: قاتلان 🔪 · طبيب 🩺 · محقق 🕵️ · والباقي مواطنون 🧑
+        الأدوار: ${+S.settings.killers === 1 ? 'قاتل واحد 🔪' : 'قاتلان 🔪'} · طبيب 🩺 · محقق 🕵️ · والباقي مواطنون 🧑
       </p></div>`;
+    if (you.isHost && +S.settings.killers === 2 && S.players.length === 5) {
+      h += `<div class="card" style="border-color:var(--warn)">
+        <b>💡 أنتم خمسة</b><p class="muted" style="margin:6px 0 0">
+        القاتلان يحتاجان ستة لاعبين — بخمسة تنتهي الجولة فور أول عملية قتل ناجحة.
+        اختر <b>قاتلاً واحداً</b> من الإعدادات لتبدؤوا الآن، أو انتظروا لاعباً سادساً.</p></div>`;
+    }
     h += settingsPanel(you.isHost, S);
     if (you.isHost) {
       const ok = S.players.length >= S.minPlayers;
@@ -312,7 +327,7 @@ function render() {
       h += `<div class="rolecard ${r}">
         <div class="emo">${ROLE_EMO[r]}</div>
         <h2>أنت ${you.roleAr}</h2>
-        <p class="muted">${ROLE_DESC[r]}</p>
+        <p class="muted">${r === 'killer' && !(S.allies || []).length ? ROLE_DESC.killer_solo : ROLE_DESC[r]}</p>
         ${S.allies && S.allies.length ? `<p style="margin-top:10px;color:#ff8fa3">شريكك في الجريمة: <b>${esc(S.allies.join('، '))}</b></p>` : ''}
       </div>
       <div style="height:12px"></div>
@@ -331,19 +346,22 @@ function render() {
     h += narration();
     if (you.role === 'killer' && you.alive) {
       const allies = S.players.filter(p => p.ally || (p.isYou)).map(p => p.id);
-      h += `<div class="card"><h3>🔪 اختاروا الضحية</h3>
-        <p class="muted">يجب أن تتفقا على نفس الشخص. إن اختلفتما حتى انتهاء الوقت، يُختار أحد اختياريكما عشوائياً.</p>
+      const solo = !(S.allies || []).length;
+      h += `<div class="card"><h3>🔪 ${solo ? 'اختر الضحية' : 'اختاروا الضحية'}</h3>
+        <p class="muted">${solo ? 'اختر من يسقط هذه الليلة.'
+          : 'يجب أن تتفقا على نفس الشخص. إن اختلفتما حتى انتهاء الوقت، يُختار أحد اختياريكما عشوائياً.'}</p>
         <div style="height:10px"></div>
         ${playerList({ pick: true, exclude: allies })}
         ${confirmBar('تأكيد الاختيار')}
         ${S.picks && S.picks.length ? `<p class="muted" style="margin-top:10px">الاختيارات الحالية: ${S.picks.map(x => esc(x.name) + ' ← ' + esc(x.target)).join(' · ')}</p>` : ''}
       </div>`;
-      h += `<div class="card"><h3>محادثة القتلة (سرية)</h3>
+      if (!solo) h += `<div class="card"><h3>محادثة القتلة (سرية)</h3>
         <div class="chat" id="chat">${(S.chat || []).map(m => `<div class="msg"><b>${esc(m.name)}:</b> ${esc(m.text)}</div>`).join('') || '<div class="muted">لا رسائل بعد…</div>'}</div>
         <div class="row"><input id="cmsg" class="grow" placeholder="اكتب رسالة لشريكك…" maxlength="200">
         <button class="sm" data-send="1">إرسال</button></div></div>`;
     } else {
-      h += nightScreen('🌙', 'أغمض عينيك', 'القتلة يتشاورون على ضحيتهم…');
+      h += nightScreen('🌙', 'أغمض عينيك', +S.settings.killers === 1
+        ? 'القاتل يختار ضحيته…' : 'القتلة يتشاورون على ضحيتهم…');
     }
   }
 

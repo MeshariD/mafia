@@ -59,6 +59,12 @@
       <h3>إنشاء غرفة جديدة</h3>
       <p class="muted">أنشئ الغرفة، ثم أرسل الرابط لباقي اللاعبين من داخلها.</p>
       <div style="height:12px"></div>
+      <label>عدد القتلة</label>
+      <select id="nkill">
+        <option value="2" selected>قاتلان 🔪🔪 — من ٦ لاعبين</option>
+        <option value="1">قاتل واحد 🔪 — من ٥ لاعبين</option>
+      </select>
+      <div style="height:10px"></div>
       <label>قاعدة الطبيب في الحماية</label>
       <select id="drule">
         <option value="consecutive">لا يحمي نفس الشخص ليلتين متتاليتين</option>
@@ -91,7 +97,7 @@
   </div>
 
   <div id="err" class="err hidden"></div>
-  <div class="foot">أقل عدد للاعبين: ٦ — الأفضل من ٨ إلى ١٢</div>
+  <div class="foot">أقل عدد للاعبين: ٥ بقاتل واحد، و٦ بقاتلَين — الأفضل من ٨ إلى ١٢</div>
 </div>
 
 <script>
@@ -143,6 +149,7 @@ $('#create').onclick = async () => {
       name: myName(),
       settings: {
         doctorRule: $('#drule').value,
+        killers: +$('#nkill').value,
         nightKillSeconds: +$('#tkill').value,
         nightDetectiveSeconds: +$('#tdet').value,
         nightDoctorSeconds: +$('#tdoc').value,

@@ -44,9 +44,20 @@ DEFAULT_SETTINGS = {
     "voteSeconds": 180,
     "revealSeconds": 60,
     "doctorRule": "consecutive",  # consecutive | once
+    "killers": 2,                 # 1 أو 2
 }
 
-MIN_PLAYERS = 6
+MIN_FLOOR = 5                # أقل عدد لاعبين مسموح به مهما كان عدد القتلة
+
+
+def min_players(settings):
+    """قتلة + طبيب + محقق + مواطنان — فأقل من ذلك تنتهي الجولة بعد أول قتل.
+
+    قاتل واحد ⇐ خمسة لاعبين، وقاتلان ⇐ ستة.
+    """
+    return max(MIN_FLOOR, int(settings.get("killers", 2)) + 4)
+
+
 RESULT_SECONDS = 12          # مهلة قراءة نتيجة المحقق بعد استفساره
 
 # حدود الأوقات القابلة للتعديل: المفتاح -> (الأدنى، الأعلى)
@@ -180,6 +191,8 @@ def create_room(settings=None):
             for k in ("doctorRule",):
                 if k in settings:
                     s[k] = settings[k]
+            if settings.get("killers") in (1, 2, "1", "2"):
+                s["killers"] = int(settings["killers"])
             apply_times(s, settings)
         room = {
             "code": code,
@@ -230,11 +243,13 @@ def add_player(room, name):
 
 def start_game(room):
     ids = list(room["order"])
-    if len(ids) < MIN_PLAYERS:
-        return "عدد اللاعبين غير كافٍ (الحد الأدنى %d)" % MIN_PLAYERS
+    need = min_players(room["settings"])
+    if len(ids) < need:
+        return "عدد اللاعبين غير كافٍ (الحد الأدنى %d)" % need
     shuffled = ids[:]
     random.shuffle(shuffled)
-    roles = [KILLER, KILLER, DOCTOR, DETECTIVE] + [CITIZEN] * (len(shuffled) - 4)
+    nk = int(room["settings"].get("killers", 2))
+    roles = [KILLER] * nk + [DOCTOR, DETECTIVE] + [CITIZEN] * (len(shuffled) - nk - 2)
     for pid, role in zip(shuffled, roles):
         p = room["players"][pid]
         p["role"] = role
@@ -266,8 +281,10 @@ def to_killers(room):
     if not alive_with_role(room, KILLER):
         to_detective(room)
         return
+    solo = int(room["settings"].get("killers", 2)) == 1
     set_phase(room, "night_killers", room["settings"]["nightKillSeconds"],
-              "ليفتح القتلة أعينهم. اتفقوا فيما بينكم على ضحية هذه الليلة.")
+              "ليفتح القاتل عينيه، واختر ضحية هذه الليلة." if solo
+              else "ليفتح القتلة أعينهم. اتفقوا فيما بينكم على ضحية هذه الليلة.")
 
 
 def resolve_killers(room):
@@ -284,7 +301,9 @@ def to_detective(room):
         to_doctor(room)
         return
     set_phase(room, "night_detective", room["settings"]["nightDetectiveSeconds"],
-              "ليُغلق القتلة أعينهم. ليفتح المحقق عينيه، واستفسر عن شخص واحد.")
+              ("ليُغلق القاتل عينيه. " if int(room["settings"].get("killers", 2)) == 1
+               else "ليُغلق القتلة أعينهم. ")
+              + "ليفتح المحقق عينيه، واستفسر عن شخص واحد.")
 
 
 def to_doctor(room):
@@ -461,6 +480,9 @@ def do_action(room, player, data):
         rule = data.get("doctorRule")
         if rule in ("consecutive", "once"):
             room["settings"]["doctorRule"] = rule
+        nk = data.get("killers")
+        if nk in (1, 2, "1", "2"):
+            room["settings"]["killers"] = int(nk)
         apply_times(room["settings"], data)
         bump(room)
         return None
@@ -614,7 +636,7 @@ def build_state(room, player):
         "narration": room["narration"],
         "narrationId": room["narrationId"],
         "voice": voice_clips(room),
-        "minPlayers": MIN_PLAYERS,
+        "minPlayers": min_players(room["settings"]),
         "settings": room["settings"],
         "you": {
             "id": pid,
@@ -681,9 +703,9 @@ def voice_clips(room):
     if ph == "night_intro":
         return ["night"]
     if ph == "night_killers":
-        return ["killers"]
+        return ["killers_one"] if int(room["settings"].get("killers", 2)) == 1 else ["killers"]
     if ph == "night_detective":
-        return ["detective"]
+        return ["detective_one"] if int(room["settings"].get("killers", 2)) == 1 else ["detective"]
     if ph == "night_doctor":
         return ["doctor"]
     if ph == "day_announce":
