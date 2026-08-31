@@ -45,6 +45,7 @@ DEFAULT_SETTINGS = {
     "revealSeconds": 60,
     "doctorRule": "consecutive",  # consecutive | once
     "killers": 2,                 # 1 أو 2
+    "narrator": "all",            # all = كل الأجهزة · host = جهاز المضيف وحده
 }
 
 MIN_FLOOR = 5                # أقل عدد لاعبين مسموح به مهما كان عدد القتلة
@@ -59,6 +60,7 @@ def min_players(settings):
 
 
 RESULT_SECONDS = 12          # مهلة قراءة نتيجة المحقق بعد استفساره
+NARRATION_LEAD = 1.2         # ثوانٍ تسبق النطق ليبدأ على كل الأجهزة معاً
 
 # حدود الأوقات القابلة للتعديل: المفتاح -> (الأدنى، الأعلى)
 TIME_LIMITS = {
@@ -160,6 +162,7 @@ def set_phase(room, phase, seconds=None, narration=None):
     room["deadline"] = (time.time() + seconds) if seconds else None
     room["narration"] = narration or ""
     room["narrationId"] = "%s-%d-%d" % (phase, room["day"], room["version"] + 1)
+    room["narrationAt"] = time.time()
     bump(room)
 
 
@@ -193,6 +196,8 @@ def create_room(settings=None):
                     s[k] = settings[k]
             if settings.get("killers") in (1, 2, "1", "2"):
                 s["killers"] = int(settings["killers"])
+            if settings.get("narrator") in ("host", "all"):
+                s["narrator"] = settings["narrator"]
             apply_times(s, settings)
         room = {
             "code": code,
@@ -483,6 +488,8 @@ def do_action(room, player, data):
         nk = data.get("killers")
         if nk in (1, 2, "1", "2"):
             room["settings"]["killers"] = int(nk)
+        if data.get("narrator") in ("host", "all"):
+            room["settings"]["narrator"] = data["narrator"]
         apply_times(room["settings"], data)
         bump(room)
         return None
@@ -636,6 +643,8 @@ def build_state(room, player):
         "narration": room["narration"],
         "narrationId": room["narrationId"],
         "voice": voice_clips(room),
+        "narrationAt": room.get("narrationAt"),
+        "narrationLead": NARRATION_LEAD,
         "minPlayers": min_players(room["settings"]),
         "settings": room["settings"],
         "you": {

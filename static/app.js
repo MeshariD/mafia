@@ -62,6 +62,7 @@ function settingsPanel(isHost, st) {
   if (!isHost) {
     return `<div class="card"><h3>⏱️ إعدادات الجولة</h3><p class="muted">` +
       `عدد القتلة: <b>${+s.killers === 1 ? 'قاتل واحد' : 'قاتلان'}</b> · ` +
+      `الراوي: <b>${s.narrator === 'all' ? 'من جهاز كل لاعب' : 'من جهاز المضيف وحده'}</b> · ` +
       TIME_FIELDS.map(([k, l]) => `${l}: <b>${fmtDur(s[k])}</b>`).join(' · ') +
       `<br>حماية الطبيب: ${s.doctorRule === 'once' ? 'مرة واحدة لكل شخص طوال اللعبة'
         : 'لا يحمي نفس الشخص ليلتين متتاليتين'}</p></div>`;
@@ -73,6 +74,11 @@ function settingsPanel(isHost, st) {
     <select data-set="killers">
       <option value="1"${+s.killers === 1 ? ' selected' : ''}>قاتل واحد 🔪</option>
       <option value="2"${+s.killers === 2 ? ' selected' : ''}>قاتلان 🔪🔪</option>
+    </select><div style="height:10px"></div>
+    <label>صوت الراوي</label>
+    <select data-set="narrator">
+      <option value="host"${s.narrator !== 'all' ? ' selected' : ''}>من جهاز المضيف وحده — لعب حضوري</option>
+      <option value="all"${s.narrator === 'all' ? ' selected' : ''}>من جهاز كل لاعب — لعب عن بُعد</option>
     </select><div style="height:10px"></div>
     <label>قاعدة الطبيب في الحماية</label>
     <select data-set="doctorRule">
@@ -147,9 +153,19 @@ function playClip(file) {
     a.play().catch(e => res(!(e && e.name === 'NotAllowedError')));
   });
 }
+function iAmNarrator() {
+  if (!S) return false;
+  return (S.settings || {}).narrator === 'all' || S.you.isHost;
+}
 async function narrate(ids, text) {
-  if (!soundOn) return;
+  if (!soundOn || !iAmNarrator()) return;
   await voiceReady;
+  // كل الأجهزة تنطق في اللحظة نفسها، فلا يفضح جهازُ من ضغط دورَه
+  if (S && S.narrationAt) {
+    const at = S.narrationAt + (S.narrationLead || 0);
+    const wait = at - (Date.now() / 1000 - skew);
+    if (wait > 0) await sleep(Math.min(wait, 5) * 1000);
+  }
   if (ids && ids.length && ids.every(i => clipFor(i))) {
     if (window.speechSynthesis) speechSynthesis.cancel();
     for (const id of ids) {
@@ -160,13 +176,23 @@ async function narrate(ids, text) {
         return;
       }
     }
-    if (audioBlocked) { audioBlocked = false; render(); }
+    if (audioBlocked && iAmNarrator()) { audioBlocked = false; render(); }
     return;
   }
   speak(text);                                          // البديل: الصوت الآلي
 }
 
-function syncSoundBtn() { $('#sound').textContent = soundOn ? '🔊 الصوت' : '🔇 الصوت'; }
+function syncSoundBtn() {
+  const btn = $('#sound');
+  if (S && !iAmNarrator()) {
+    btn.textContent = '🔈 الراوي من جهاز المضيف';
+    btn.disabled = true;
+    btn.title = 'الصوت يُسمع من جهاز المضيف وحده حتى لا يفضح صوتُ جهازك دورَك.';
+  } else {
+    btn.disabled = false;
+    btn.textContent = soundOn ? '🔊 الصوت' : '🔇 الصوت';
+  }
+}
 $('#sound').onclick = () => {
   soundOn = !soundOn;
   localStorage.setItem('mafia:sound', soundOn ? 'on' : 'off');
@@ -174,7 +200,7 @@ $('#sound').onclick = () => {
   if (soundOn) { unlockAudio(); if (pending) narrate(pending.ids, pending.text); }
   else {
     if (window.speechSynthesis) speechSynthesis.cancel();
-    if (audioBlocked) { audioBlocked = false; render(); }
+    if (audioBlocked && iAmNarrator()) { audioBlocked = false; render(); }
   }
 };
 syncSoundBtn();
@@ -467,7 +493,7 @@ function render() {
       <b>أنت خارج اللعبة</b><p class="muted" style="margin:6px 0 0">تتابع كمشاهد — لا تفصح عن أي معلومة.</p></div>` + h;
   }
 
-  if (audioBlocked) {
+  if (audioBlocked && iAmNarrator()) {
     h = `<div class="card" style="border-color:var(--warn);background:linear-gradient(90deg,#3a2a08,#141830)">
       <div class="row"><div class="grow">
         <b style="font-size:17px">🔇 المتصفح أوقف الصوت</b>
@@ -475,6 +501,7 @@ function render() {
       </div><button data-unlock="1">🔊 فعّل الصوت</button></div></div>` + h;
   }
   app.innerHTML = h;
+  syncSoundBtn();
   wire();
 }
 

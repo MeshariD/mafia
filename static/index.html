@@ -65,6 +65,12 @@
         <option value="1">قاتل واحد 🔪 — من ٥ لاعبين</option>
       </select>
       <div style="height:10px"></div>
+      <label>صوت الراوي</label>
+      <select id="narr">
+        <option value="host" selected>من جهاز المضيف وحده — لعب حضوري</option>
+        <option value="all">من جهاز كل لاعب — لعب عن بُعد</option>
+      </select>
+      <div style="height:10px"></div>
       <label>قاعدة الطبيب في الحماية</label>
       <select id="drule">
         <option value="consecutive">لا يحمي نفس الشخص ليلتين متتاليتين</option>
@@ -150,6 +156,7 @@ $('#create').onclick = async () => {
       settings: {
         doctorRule: $('#drule').value,
         killers: +$('#nkill').value,
+        narrator: $('#narr').value,
         nightKillSeconds: +$('#tkill').value,
         nightDetectiveSeconds: +$('#tdet').value,
         nightDoctorSeconds: +$('#tdoc').value,
